@@ -269,8 +269,12 @@ defmodule Craft.Consensus.State.LeaderState do
 
   def bump_last_heartbeat_reply_at(%State{} = state, %AppendEntries.Results{} = results) do
     if Members.can_vote?(state.members, results.from) do
-      last_heartbeat_replies_at = Map.put(state.leader_state.last_heartbeat_replies_at, results.from, {results.heartbeat_sent_at, :erlang.monotonic_time(:millisecond)})
+      reply_received_at = :erlang.monotonic_time(:millisecond)
+      last_heartbeat_replies_at = Map.put(state.leader_state.last_heartbeat_replies_at, results.from, {results.heartbeat_sent_at, reply_received_at})
       state = put_in(state.leader_state.last_heartbeat_replies_at, last_heartbeat_replies_at)
+
+      htt_ms = reply_received_at - results.heartbeat_sent_at
+      Logger.info("heartbeat-stats - from: #{results.from}, heartbeat_sent_at: #{results.heartbeat_sent_at}, heartbeat_received_at: #{reply_received_at}, HTT=#{htt_ms}ms")
 
       # -1 since we're the leader
       num_replies_needed = State.quorum_needed(state) - 1
